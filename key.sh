@@ -1,2 +1,2 @@
 eval "$(ssh-agent -s)"
-ssh-add ../keys/sccKey
+ssh-add ../keys/scckey1
