@@ -26,8 +26,8 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
 
-import torchvision
-import torchvision.transforms as transforms
+#import torchvision
+#import torchvision.transforms as transforms
 
 import os
 import argparse
@@ -35,6 +35,24 @@ import argparse
 from models.s4.s4 import S4Block as S4  # Can use full version instead of minimal S4D standalone below
 from models.s4.s4d import S4D
 from tqdm.auto import tqdm
+
+###dataloader speach commands
+
+import torch.nn.functional as F
+
+import torchaudio
+import sys
+
+#import matplotlib.pyplot as plt only visuals no need
+import IPython.display as ipd
+
+from torchaudio.datasets import SPEECHCOMMANDS
+
+import typing_extensions
+from importlib import reload
+reload(typing_extensions)
+###
+
 
 # Dropout broke in PyTorch 1.11
 if tuple(map(int, torch.__version__.split('.')[:2])) == (1, 11):
@@ -55,8 +73,8 @@ parser.add_argument('--weight_decay', default=0.01, type=float, help='Weight dec
 # parser.add_argument('--patience', default=10, type=float, help='Patience for learning rate scheduler')
 parser.add_argument('--epochs', default=100, type=float, help='Training epochs')
 # Dataset
-parser.add_argument('--dataset', default='cifar10', choices=['mnist', 'cifar10'], type=str, help='Dataset')
-parser.add_argument('--grayscale', action='store_true', help='Use grayscale CIFAR10')
+#parser.add_argument('--dataset', default='cifar10', choices=['mnist', 'cifar10'], type=str, help='Dataset')
+#parser.add_argument('--grayscale', action='store_true', help='Use grayscale CIFAR10')
 # Dataloader
 parser.add_argument('--num_workers', default=4, type=int, help='Number of workers to use for dataloader')
 parser.add_argument('--batch_size', default=64, type=int, help='Batch size')
@@ -86,69 +104,109 @@ def split_train_val(train, val_split):
     )
     return train, val
 
-if args.dataset == 'cifar10':
 
-    if args.grayscale:
-        transform = transforms.Compose([
-            transforms.Grayscale(),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=122.6 / 255.0, std=61.0 / 255.0),
-            transforms.Lambda(lambda x: x.view(1, 1024).t())
-        ])
-    else:
-        transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-            transforms.Lambda(lambda x: x.view(3, 1024).t())
-        ])
 
-    # S4 is trained on sequences with no data augmentation!
-    transform_train = transform_test = transform
 
-    trainset = torchvision.datasets.CIFAR10(
-        root='./data/cifar/', train=True, download=True, transform=transform_train)
-    trainset, _ = split_train_val(trainset, val_split=0.1)
+class SubsetSC(SPEECHCOMMANDS):
+    def __init__(self, subset: str = None):
+        super().__init__("./", download=True)
 
-    valset = torchvision.datasets.CIFAR10(
-        root='./data/cifar/', train=True, download=True, transform=transform_test)
-    _, valset = split_train_val(valset, val_split=0.1)
+        def load_list(filename):
+            filepath = os.path.join(self._path, filename)
+            with open(filepath) as fileobj:
+                return [os.path.normpath(os.path.join(self._path, line.strip())) for line in fileobj]
 
-    testset = torchvision.datasets.CIFAR10(
-        root='./data/cifar/', train=False, download=True, transform=transform_test)
+        if subset == "validation":
+            self._walker = load_list("validation_list.txt")
+        elif subset == "testing":
+            self._walker = load_list("testing_list.txt")
+        elif subset == "training":
+            excludes = load_list("validation_list.txt") + load_list("testing_list.txt")
+            excludes = set(excludes)
+            self._walker = [w for w in self._walker if w not in excludes]
 
-    d_input = 3 if not args.grayscale else 1
-    d_output = 10
 
-elif args.dataset == 'mnist':
+def label_to_index(word):
+    # Return the position of the word in labels
+    return torch.tensor(labels.index(word))
 
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Lambda(lambda x: x.view(1, 784).t())
-    ])
-    transform_train = transform_test = transform
 
-    trainset = torchvision.datasets.MNIST(
-        root='./data', train=True, download=True, transform=transform_train)
-    trainset, _ = split_train_val(trainset, val_split=0.1)
+def index_to_label(index):
+    # Return the word corresponding to the index in labels
+    # This is the inverse of label_to_index
+    return labels[index]
 
-    valset = torchvision.datasets.MNIST(
-        root='./data', train=True, download=True, transform=transform_test)
-    _, valset = split_train_val(valset, val_split=0.1)
+def pad_sequence(batch):
+    # Make all tensor in a batch the same length by padding with zeros
+    batch = [item.t() for item in batch]
+    batch = torch.nn.utils.rnn.pad_sequence(batch, batch_first=True, padding_value=0.)
+    return batch.permute(0, 2, 1)
 
-    testset = torchvision.datasets.MNIST(
-        root='./data', train=False, download=True, transform=transform_test)
 
-    d_input = 1
-    d_output = 10
-else: raise NotImplementedError
+def collate_fn(batch):
 
+    # A data tuple has the form:
+    # waveform, sample_rate, label, speaker_id, utterance_number
+
+    tensors, targets = [], []
+
+    # Gather in lists, and encode labels as indices
+    for waveform, _, label, *_ in batch:
+        tensors += [waveform]
+        targets += [label_to_index(label)]
+
+    # Group the list of tensors into a batched tensor
+    tensors = pad_sequence(tensors)
+    targets = torch.stack(targets)
+
+    return tensors, targets
+            
+trainset = SubsetSC("training")
+testset = SubsetSC("testing")
+valset = SubsetSC("validation")
+
+d_input = 1
+d_output = 1
+
+labels = sorted(list(set(datapoint[2] for datapoint in train_set)))
+
+##batch_size = 256 is an arg
+
+
+#############old code
 # Dataloaders
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+if device == "cuda":
+    pin_memory = True
+else:
+    pin_memory = False
+
 trainloader = torch.utils.data.DataLoader(
-    trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
+    trainset, 
+    batch_size=args.batch_size, 
+    shuffle=True, 
+    collate_fn=collate_fn,
+    num_workers=args.num_workers,
+    pin_memory=pin_memory,
+)
+
 valloader = torch.utils.data.DataLoader(
-    valset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
+    valset, 
+    batch_size=args.batch_size, 
+    shuffle=False, 
+    collate_fn=collate_fn,
+    num_workers=args.num_workers,
+    pin_memory=pin_memory,
+)
+
 testloader = torch.utils.data.DataLoader(
-    testset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
+    testset, 
+    batch_size=args.batch_size, 
+    shuffle=False, 
+    collate_fn=collate_fn,
+    num_workers=args.num_workers,
+    pin_memory=pin_memory,
+)
 
 class S4Model(nn.Module):
 
