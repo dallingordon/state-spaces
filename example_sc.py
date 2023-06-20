@@ -93,7 +93,7 @@ best_acc = 0  # best test accuracy
 start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 
 # Data
-print(f'==> Preparing {args.dataset} data..')
+print("preparing speechcommands!!")
 
 def split_train_val(train, val_split):
     train_len = int(len(train) * (1.0-val_split))
