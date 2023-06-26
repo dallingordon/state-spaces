@@ -49,8 +49,8 @@ import IPython.display as ipd
 from torchaudio.datasets import SPEECHCOMMANDS
 
 import typing_extensions
-from importlib import reload
-reload(typing_extensions)
+#from importlib import reload
+#reload(typing_extensions)
 ###
 
 
@@ -108,9 +108,11 @@ def split_train_val(train, val_split):
 
 
 class SubsetSC(SPEECHCOMMANDS):
-    def __init__(self, subset: str = None):
+    def __init__(self, subset = None):  
         super().__init__("./", download=True)
-
+        
+        print(subset)
+        
         def load_list(filename):
             filepath = os.path.join(self._path, filename)
             with open(filepath) as fileobj:
@@ -149,7 +151,7 @@ def collate_fn(batch):
     # waveform, sample_rate, label, speaker_id, utterance_number
 
     tensors, targets = [], []
-
+    
     # Gather in lists, and encode labels as indices
     for waveform, _, label, *_ in batch:
         tensors += [waveform]
@@ -160,7 +162,10 @@ def collate_fn(batch):
     targets = torch.stack(targets)
 
     return tensors, targets
-            
+
+print("splitting train/test/val")
+cwd = os.getcwd()
+print(cwd)
 trainset = SubsetSC("training")
 testset = SubsetSC("testing")
 valset = SubsetSC("validation")
@@ -168,19 +173,23 @@ valset = SubsetSC("validation")
 d_input = 1
 d_output = 1
 
-labels = sorted(list(set(datapoint[2] for datapoint in train_set)))
-
+##This takes a while.  not sure why, but even in pnb
+print("generating labels list.  for some reason this takes a while")
+labels = sorted(list(set(datapoint[2] for datapoint in trainset)))
+print("done!")
 ##batch_size = 256 is an arg
 
 
 #############old code
 # Dataloaders
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(device)
 if device == "cuda":
     pin_memory = True
 else:
     pin_memory = False
 
+print("data loaders for each set")
 trainloader = torch.utils.data.DataLoader(
     trainset, 
     batch_size=args.batch_size, 
@@ -245,6 +254,8 @@ class S4Model(nn.Module):
         Input x is shape (B, L, d_input)
         """
         x = self.encoder(x)  # (B, L, d_input) -> (B, L, d_model)
+        #mat1 and mat2 shapes cannot be multiplied (64x16000 and 1x128)
+        #i need to swap second and 3rd axes for the dataloader
 
         x = x.transpose(-1, -2)  # (B, L, d_model) -> (B, d_model, L)
         for layer, norm, dropout in zip(self.s4_layers, self.norms, self.dropouts):
