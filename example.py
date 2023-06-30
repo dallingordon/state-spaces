@@ -186,8 +186,10 @@ class S4Model(nn.Module):
         """
         Input x is shape (B, L, d_input)
         """
+        print(x.shape) #shape is ([64, 1024, 3]) batch size, series len (so time), and channels.  
         x = self.encoder(x)  # (B, L, d_input) -> (B, L, d_model)
-
+        print(x.shape) #shape [64, 1024, 128], 128 is model spec
+        
         x = x.transpose(-1, -2)  # (B, L, d_model) -> (B, d_model, L)
         for layer, norm, dropout in zip(self.s4_layers, self.norms, self.dropouts):
             # Each iteration of this loop will map (B, d_model, L) -> (B, d_model, L)

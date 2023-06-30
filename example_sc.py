@@ -174,9 +174,9 @@ d_input = 1
 d_output = 1
 
 ##This takes a while.  not sure why, but even in pnb
-print("generating labels list.  for some reason this takes a while")
+##load this from a text file, make it tomorrow.  this is rediculous omg.
 labels = sorted(list(set(datapoint[2] for datapoint in trainset)))
-print("done!")
+
 ##batch_size = 256 is an arg
 
 
@@ -253,6 +253,7 @@ class S4Model(nn.Module):
         """
         Input x is shape (B, L, d_input)
         """
+        print(x.shape) #this should be [batch(64 i think), len (idk, that is speach commands), and channels (1)]
         x = self.encoder(x)  # (B, L, d_input) -> (B, L, d_model)
         #mat1 and mat2 shapes cannot be multiplied (64x16000 and 1x128)
         #i need to swap second and 3rd axes for the dataloader
@@ -404,6 +405,7 @@ def eval(epoch, dataloader, checkpoint=False):
         pbar = tqdm(enumerate(dataloader))
         for batch_idx, (inputs, targets) in pbar:
             inputs, targets = inputs.to(device), targets.to(device)
+            #torch.swapaxes(inputs,1,2) I think this is right.  
             outputs = model(inputs)
             loss = criterion(outputs, targets)
 
