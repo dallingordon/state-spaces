@@ -170,15 +170,50 @@ trainset = SubsetSC("training")
 testset = SubsetSC("testing")
 valset = SubsetSC("validation")
 
-d_input = 1
-d_output = 1
+
 
 ##This takes a while.  not sure why, but even in pnb
 ##load this from a text file, make it tomorrow.  this is rediculous omg.
-labels = sorted(list(set(datapoint[2] for datapoint in trainset)))
 
-##batch_size = 256 is an arg
+#labels = sorted(list(set(datapoint[2] for datapoint in trainset)))
+labels = sorted(['backward',
+ 'bed',
+ 'bird',
+ 'cat',
+ 'dog',
+ 'down',
+ 'eight',
+ 'five',
+ 'follow',
+ 'forward',
+ 'four',
+ 'go',
+ 'happy',
+ 'house',
+ 'learn',
+ 'left',
+ 'marvin',
+ 'nine',
+ 'no',
+ 'off',
+ 'on',
+ 'one',
+ 'right',
+ 'seven',
+ 'sheila',
+ 'six',
+ 'stop',
+ 'three',
+ 'tree',
+ 'two',
+ 'up',
+ 'visual',
+ 'wow',
+ 'yes',
+ 'zero'])
 
+d_input = 1
+d_output = len(labels)
 
 #############old code
 # Dataloaders
@@ -253,7 +288,7 @@ class S4Model(nn.Module):
         """
         Input x is shape (B, L, d_input)
         """
-        print(x.shape) #this should be [batch(64 i think), len (idk, that is speach commands), and channels (1)]
+        #print(x.shape) #this should be [batch(64 i think), len (idk, that is speach commands), and channels (1)]
         x = self.encoder(x)  # (B, L, d_input) -> (B, L, d_model)
         #mat1 and mat2 shapes cannot be multiplied (64x16000 and 1x128)
         #i need to swap second and 3rd axes for the dataloader
@@ -378,7 +413,12 @@ def train():
     pbar = tqdm(enumerate(trainloader))
     for batch_idx, (inputs, targets) in pbar:
         inputs, targets = inputs.to(device), targets.to(device)
+        #swap axes because of sc format
+        inputs = torch.swapaxes(inputs, 1, 2)
+        
         optimizer.zero_grad()
+        
+        
         outputs = model(inputs)
         loss = criterion(outputs, targets)
         loss.backward()
@@ -406,6 +446,7 @@ def eval(epoch, dataloader, checkpoint=False):
         for batch_idx, (inputs, targets) in pbar:
             inputs, targets = inputs.to(device), targets.to(device)
             #torch.swapaxes(inputs,1,2) I think this is right.  
+            inputs = torch.swapaxes(inputs, 1, 2)
             outputs = model(inputs)
             loss = criterion(outputs, targets)
 
