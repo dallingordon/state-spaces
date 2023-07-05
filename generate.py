@@ -28,7 +28,11 @@ def test_step(model):
     # Step
     model._reset_state(batch, device='cuda')
     ys = []
+    
+    #i think i initialize t right here
+    
     for x_ in torch.unbind(x, dim=-1):
+        ##I think i need a t += 1 right here, and pass that into model.step
         y_ = model.step(x_)
         ys.append(y_)
     ys = torch.stack(ys, dim=1)
@@ -74,7 +78,8 @@ def generate(
 
     # Generation loop
     for t in tqdm(range(T)):
-
+        
+        #use the time embedding here.
         # Step through the model with the current sample
         y_t = model.step(x_t)
 
