@@ -1,0 +1,15 @@
+# @package _global_
+# dg 10-20
+optimizer:
+  lr: 1e-2
+train:
+  interval: epoch
+  monitor: val_accuracy 
+scheduler:
+  _name_: timm_cosine
+  t_initial: 300
+  lr_min: 1e-5
+  cycle_decay: 0.1 # changed from decay_rate in timm 0.5.4
+  warmup_lr_init: 1e-6
+  warmup_t: 10
+  cycle_limit: 10

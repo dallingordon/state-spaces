@@ -17,6 +17,20 @@ defaults:
 
 # Additional arguments used to configure the training loop
 # Most of these set combinations of options in the PL trainer, add callbacks, or add features to the optimizer
+# tc added by dg 10/2 for trans-conv model
+tc:
+  transformer:  
+    trans_dim: 20
+    ff_dim: 50
+    num_layers: 1
+    num_heads: 5
+    dropout: 0.1
+  
+  conv:
+    segment_length: 100
+    stride: 100
+
+
 train:
   seed: 0
   name: null # optional name for the run to make logging easier

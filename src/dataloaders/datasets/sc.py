@@ -127,7 +127,7 @@ def split_data(tensor, stratify):
 
 
 class _SpeechCommands(torch.utils.data.TensorDataset):
-
+    
     SUBSET_CLASSES = [
         "yes",
         "no",
@@ -140,6 +140,7 @@ class _SpeechCommands(torch.utils.data.TensorDataset):
         "stop",
         "go",
     ]
+    
     ALL_CLASSES = [
         "bed",
         "cat",
